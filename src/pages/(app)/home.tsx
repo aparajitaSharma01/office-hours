@@ -248,7 +248,7 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
           {session && (
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Join code</p>
-              <p className="font-mono text-2xl font-bold tracking-widest text-primary">
+              <p data-testid="join-code" className="font-mono text-2xl font-bold tracking-widest text-primary">
                 {session.data.joinCode}
               </p>
             </div>

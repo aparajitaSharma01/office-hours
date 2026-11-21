@@ -104,6 +104,69 @@ test('API status page renders loading success and error states', async ({ users 
   expect(user.page.url()).toBe(urlAfterFailure)
 })
 
+test('admin creates session, member joins and sees live status updates', async ({ users }) => {
+  // Uses named accounts so the roles are predictable. TA Alice must have
+  // admin role set in the app (Settings → Users) before this test can run.
+  const [ta, student] = await users(['TA Alice', 'Student Bob'])
+
+  await Promise.all([ta.page.goto('/home'), student.page.goto('/home')])
+  await Promise.all([
+    expect(ta.page.getByTestId('app-navigation')).toBeVisible({ timeout: 15_000 }),
+    expect(student.page.getByTestId('app-navigation')).toBeVisible({ timeout: 15_000 }),
+  ])
+
+  // Skip instead of fail when the TA account hasn't been promoted yet
+  const taIsAdmin = await ta.page.getByRole('heading', { name: 'TA Dashboard' }).isVisible()
+  test.skip(!taIsAdmin, 'TA Alice needs admin role — open Settings → Users in the app and set her role to admin, then rerun')
+
+  // ── 1. TA creates a session ────────────────────────────────────────────────
+  const sessionTitle = `E2E Session ${Date.now()}`
+  await ta.page.getByPlaceholder('Session title').fill(sessionTitle)
+
+  // End time one hour from now in the yyyy-MM-ddTHH:mm format datetime-local needs
+  const endsAt = new Date(Date.now() + 60 * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const endTimeLocal = `${endsAt.getFullYear()}-${pad(endsAt.getMonth() + 1)}-${pad(endsAt.getDate())}T${pad(endsAt.getHours())}:${pad(endsAt.getMinutes())}`
+  await ta.page.locator('input[type="datetime-local"]').fill(endTimeLocal)
+
+  // Wait for mutations to be ready before clicking
+  await expect(ta.page.getByRole('button', { name: 'Create session' })).toBeEnabled({ timeout: 10_000 })
+  await ta.page.getByRole('button', { name: 'Create session' }).click()
+
+  // ── 2. TA opens the new session ───────────────────────────────────────────
+  await expect(ta.page.getByRole('button', { name: new RegExp(sessionTitle) })).toBeVisible({ timeout: 10_000 })
+  await ta.page.getByRole('button', { name: new RegExp(sessionTitle) }).click()
+
+  // Read the live join code shown in the queue header
+  await expect(ta.page.getByTestId('join-code')).toBeVisible({ timeout: 10_000 })
+  const joinCode = (await ta.page.getByTestId('join-code').textContent())?.trim() ?? ''
+  expect(joinCode).toMatch(/^[A-Z0-9]{6}$/)
+
+  // ── 3. Student joins with the code ───────────────────────────────────────
+  await student.page.getByPlaceholder('Enter join code').fill(joinCode)
+  await student.page.getByRole('button', { name: 'Join' }).click()
+
+  // ── 4. Student submits a question ────────────────────────────────────────
+  await expect(student.page.getByPlaceholder("What's your question?")).toBeVisible({ timeout: 10_000 })
+  await student.page.getByPlaceholder("What's your question?").fill('How do I use async/await?')
+  await expect(student.page.getByRole('button', { name: 'Join queue' })).toBeEnabled({ timeout: 10_000 })
+  await student.page.getByRole('button', { name: 'Join queue' }).click()
+
+  // Student sees their position in line
+  await expect(student.page.getByText(/You are #1 in line/)).toBeVisible({ timeout: 10_000 })
+
+  // ── 5. TA sees the ticket live ────────────────────────────────────────────
+  await expect(ta.page.getByText('How do I use async/await?')).toBeVisible({ timeout: 10_000 })
+
+  // ── 6. TA marks helping → student sees the update ────────────────────────
+  await ta.page.getByRole('button', { name: 'Help' }).click()
+  await expect(student.page.getByText('The TA is helping you now!')).toBeVisible({ timeout: 10_000 })
+
+  // ── 7. TA marks done → student sees the update ───────────────────────────
+  await ta.page.getByRole('button', { name: 'Done' }).click()
+  await expect(student.page.getByText('Done! Your question was answered.')).toBeVisible({ timeout: 10_000 })
+})
+
 test('groupTickets action refuses non-admin callers', async ({ users }) => {
   const [member] = await users(1)
   await member.page.goto('/home')
