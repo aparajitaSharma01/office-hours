@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.deep.space)",
+      "Bash(npx deepspace:*)"
+    ]
+  }
+}
