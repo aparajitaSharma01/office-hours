@@ -18,6 +18,11 @@
 
 export const THEMES = [
   {
+    id: 'officehours',
+    label: 'Office Hours',
+    description: 'Calm light theme with indigo accent.',
+  },
+  {
     id: 'slate',
     label: 'Slate',
     description: 'Neutral dark placeholder default. Replace with your own theme.',

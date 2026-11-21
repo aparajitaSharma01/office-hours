@@ -29,20 +29,34 @@ export default function Landing() {
         data-testid="static-landing"
         className="flex min-h-screen flex-col items-center justify-center px-6 text-center"
       >
-        <p className="mb-3 text-sm uppercase tracking-widest text-muted-foreground">{APP_NAME}</p>
-        <h1 className="mb-4 max-w-2xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          A DeepSpace app with a static front door
+        <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-primary">{APP_NAME}</p>
+        <h1 className="mb-4 max-w-xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          A live queue for office hours
         </h1>
-        <p className="mb-8 max-w-md text-muted-foreground">
-          This landing page ships no auth call and no realtime connection — it's a
-          plain static page. The live app, with sign-in and synced data, lives
-          behind the link below.
+        <p className="mb-10 max-w-sm text-base text-muted-foreground">
+          Students join with a code, TAs manage the queue in real time — no refreshing, no guessing who's next.
         </p>
+
+        <div className="mb-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
+          <div className="flex items-center gap-2 text-sm text-foreground">
+            <span className="text-lg">🟢</span>
+            Live queue — everyone sees updates instantly
+          </div>
+          <div className="flex items-center gap-2 text-sm text-foreground">
+            <span className="text-lg">🤖</span>
+            AI groups duplicate questions automatically
+          </div>
+          <div className="flex items-center gap-2 text-sm text-foreground">
+            <span className="text-lg">👀</span>
+            TA sees who's online in each session
+          </div>
+        </div>
+
         <Link
           to="/home"
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Enter the app
+          Enter the app →
         </Link>
       </div>
     </>

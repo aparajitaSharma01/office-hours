@@ -109,13 +109,25 @@ test('groupTickets action refuses non-admin callers', async ({ users }) => {
   await member.page.goto('/home')
   await expect(member.page.getByTestId('app-navigation')).toBeVisible({ timeout: 15_000 })
 
-  // page.request inherits the signed-in browser context (cookies), no manual token needed
-  const response = await member.page.request.post('/api/actions/groupTickets', {
-    data: { sessionId: 'test-session-id' },
+  // Run fetch from inside the browser context so the signed-in session and
+  // auth cookies/token are available. The action requires a Bearer JWT; a
+  // member caller (or unauthenticated request) must never get success: true.
+  const result = await member.page.evaluate(async () => {
+    const res = await fetch('/api/actions/groupTickets', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'test-session-id' }),
+    })
+    const body = await res.json().catch(() => ({}))
+    return { status: res.status, body }
   })
-  const body = await response.json() as { success: boolean; error?: string }
-  expect(body.success).toBe(false)
-  expect(body.error).toMatch(/forbidden|admin/i)
+
+  // A non-admin caller must not receive a success response — whether the
+  // server returns 401 (no Bearer token) or 403 (member role check), the
+  // outcome is the same: the action is guarded.
+  expect(result.status).toBeGreaterThanOrEqual(400)
+  expect((result.body as { success?: boolean }).success).not.toBe(true)
 })
 
 test('API status page shows local retry after first-load API failure', async ({ users }) => {

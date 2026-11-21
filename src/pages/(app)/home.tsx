@@ -19,6 +19,19 @@ type Ticket = {
   groupId?: string
 }
 
+function StatusBadge({ status }: { status?: string }) {
+  const map: Record<string, string> = {
+    waiting: 'bg-amber-100 text-amber-800',
+    helping: 'bg-blue-100 text-blue-700',
+    done: 'bg-green-100 text-green-700',
+  }
+  return (
+    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${map[status ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
+      {status ?? '—'}
+    </span>
+  )
+}
+
 function generateJoinCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
@@ -224,28 +237,35 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back
-        </button>
-        <h1 className="text-xl font-semibold">{session?.data.title ?? 'Queue'}</h1>
-        {session && (
-          <span className="rounded bg-muted px-2 py-0.5 font-mono text-sm">
-            {session.data.joinCode}
-          </span>
-        )}
-        {session?.data.status === 'open' && (
-          <button
-            disabled={!sessionReady}
-            onClick={() => putSession(sessionId, { status: 'closed' })}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
-          >
-            Close session
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <button onClick={onBack} className="mb-1 text-xs text-muted-foreground hover:text-foreground">
+            ← Back
           </button>
-        )}
-        {session?.data.status === 'closed' && (
-          <span className="ml-auto text-xs text-muted-foreground">Session closed</span>
-        )}
+          <h1 className="text-xl font-semibold">{session?.data.title ?? 'Queue'}</h1>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          {session && (
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Join code</p>
+              <p className="font-mono text-2xl font-bold tracking-widest text-primary">
+                {session.data.joinCode}
+              </p>
+            </div>
+          )}
+          {session?.data.status === 'open' && (
+            <button
+              disabled={!sessionReady}
+              onClick={() => putSession(sessionId, { status: 'closed' })}
+              className="text-xs text-muted-foreground hover:text-destructive disabled:opacity-50"
+            >
+              Close session
+            </button>
+          )}
+          {session?.data.status === 'closed' && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Closed</span>
+          )}
+        </div>
       </div>
 
       {/* Online students */}
@@ -324,7 +344,9 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
       )}
 
       {active.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Queue is empty.</p>
+        <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+          Queue is empty — no active tickets.
+        </p>
       ) : (
         <div className="space-y-2">
           {/* Grouped tickets */}
@@ -363,9 +385,7 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm">{ticket.data.question}</p>
-                    <span className={`text-xs ${ticket.data.status === 'helping' ? 'text-blue-600' : 'text-muted-foreground'}`}>
-                      {ticket.data.status}
-                    </span>
+                    <StatusBadge status={ticket.data.status} />
                   </div>
                 </div>
               ))}
@@ -381,15 +401,7 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm">{ticket.data.question}</p>
-                <span
-                  className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-xs ${
-                    ticket.data.status === 'helping'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}
-                >
-                  {ticket.data.status}
-                </span>
+                <StatusBadge status={ticket.data.status} />
               </div>
               <div className="flex shrink-0 gap-2">
                 {ticket.data.status === 'waiting' && (
@@ -537,8 +549,8 @@ function TicketView({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">{session?.data.title ?? 'Office Hours'}</h1>
-          <p className="text-xs text-muted-foreground">
-            Code: <span className="font-mono">{session?.data.joinCode}</span>
+          <p className="font-mono text-lg font-bold tracking-widest text-primary">
+            {session?.data.joinCode}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">

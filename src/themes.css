@@ -16,6 +16,35 @@
  *   4. Switch to it via `data-theme` on <html> in index.html.
  */
 
+/* Office Hours — calm light theme, indigo accent. */
+[data-theme="officehours"] {
+  color-scheme: light;
+  --color-background: #f8f7f4;
+  --color-foreground: #1c1917;
+  --color-card: #ffffff;
+  --color-card-foreground: #1c1917;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1c1917;
+  --color-primary: #4338ca;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #ede9fe;
+  --color-secondary-foreground: #3730a3;
+  --color-muted: #f1f0ed;
+  --color-muted-foreground: #6b7280;
+  --color-accent: #ede9fe;
+  --color-accent-foreground: #3730a3;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e2e0da;
+  --color-input: #e2e0da;
+  --color-ring: #4338ca;
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 12px 0 rgba(0, 0, 0, 0.08);
+  --color-shell: #f1f0ed;
+  --color-shell-panel: #ffffff;
+  --radius: 0.5rem;
+}
+
 /* Paper — light example theme; shows the full token contract incl.
  * `color-scheme: light`. Replace or delete it once the app has its own. */
 [data-theme="paper"] {
