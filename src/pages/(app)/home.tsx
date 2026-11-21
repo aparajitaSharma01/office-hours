@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useAuthProfileReady, useQuery, useMutations, usePresenceRoom } from 'deepspace'
+import { useAuthProfileReady, useQuery, useMutations, usePresenceRoom, getAuthToken } from 'deepspace'
+
+type SuggestionGroup = { label: string; ticketIds: string[]; groupId: string }
 
 type Session = {
   title: string
@@ -172,8 +174,53 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
 
   const { peers } = usePresenceRoom(`session:${sessionId}`)
 
+  const [suggestions, setSuggestions] = useState<SuggestionGroup[]>([])
+  const [groupLoading, setGroupLoading] = useState(false)
+  const [groupError, setGroupError] = useState<string | null>(null)
+
   const active = tickets.filter(r => r.data.status !== 'done')
   const done = tickets.filter(r => r.data.status === 'done')
+  const waitingCount = active.filter(r => r.data.status === 'waiting').length
+
+  // Split active tickets into grouped and ungrouped
+  const grouped = new Map<string, typeof active>()
+  const ungrouped: typeof active = []
+  for (const t of active) {
+    const gid = t.data.groupId
+    if (gid) {
+      if (!grouped.has(gid)) grouped.set(gid, [])
+      grouped.get(gid)!.push(t)
+    } else {
+      ungrouped.push(t)
+    }
+  }
+
+  async function handleGroupSimilar() {
+    setGroupLoading(true)
+    setGroupError(null)
+    setSuggestions([])
+    try {
+      const token = await getAuthToken()
+      if (!token) { setGroupError('Not signed in'); return }
+      const res = await fetch('/api/actions/groupTickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sessionId }),
+      })
+      const json = await res.json() as { success: boolean; data?: { groups: SuggestionGroup[] }; error?: string }
+      if (!json.success) {
+        setGroupError(json.error ?? 'Something went wrong')
+      } else if ((json.data?.groups ?? []).length === 0) {
+        setGroupError('No similar questions found.')
+      } else {
+        setSuggestions(json.data!.groups)
+      }
+    } catch {
+      setGroupError('Could not reach the server — try again')
+    } finally {
+      setGroupLoading(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
@@ -220,11 +267,114 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
         <p className="text-xs text-muted-foreground">No students online yet.</p>
       )}
 
+      {/* Group similar button */}
+      {session?.data.status === 'open' && waitingCount >= 2 && (
+        <button
+          onClick={handleGroupSimilar}
+          disabled={groupLoading}
+          className="text-sm text-primary hover:opacity-80 disabled:opacity-50"
+        >
+          {groupLoading ? 'Analyzing questions…' : 'Group similar'}
+        </button>
+      )}
+      {groupError && <p className="text-sm text-red-500">{groupError}</p>}
+
+      {/* AI suggestions */}
+      {suggestions.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Suggested groups</h2>
+            <button
+              onClick={() => setSuggestions([])}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Dismiss all
+            </button>
+          </div>
+          {suggestions.map((group, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2"
+            >
+              <div>
+                <p className="text-sm font-medium">{group.label}</p>
+                <p className="text-xs text-muted-foreground">{group.ticketIds.length} tickets</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  disabled={!ticketReady}
+                  onClick={() => {
+                    group.ticketIds.forEach(id => put(id, { groupId: group.groupId }))
+                    setSuggestions(prev => prev.filter((_, j) => j !== i))
+                  }}
+                  className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => setSuggestions(prev => prev.filter((_, j) => j !== i))}
+                  className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {active.length === 0 ? (
         <p className="text-sm text-muted-foreground">Queue is empty.</p>
       ) : (
         <div className="space-y-2">
-          {active.map(ticket => (
+          {/* Grouped tickets */}
+          {Array.from(grouped.entries()).map(([groupId, groupTickets]) => {
+            const displayLabel = groupId.split(':')[0]
+            return (
+            <div
+              key={groupId}
+              className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-primary">{displayLabel}</span>
+                {groupTickets.every(t => t.data.status === 'waiting') && (
+                  <button
+                    disabled={!ticketReady}
+                    onClick={() => groupTickets.forEach(t => put(t.recordId, { status: 'helping' }))}
+                    className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    Help group ({groupTickets.length})
+                  </button>
+                )}
+                {groupTickets.every(t => t.data.status === 'helping') && (
+                  <button
+                    disabled={!ticketReady}
+                    onClick={() => groupTickets.forEach(t => put(t.recordId, { status: 'done' }))}
+                    className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    Done all ({groupTickets.length})
+                  </button>
+                )}
+              </div>
+              {groupTickets.map(ticket => (
+                <div
+                  key={ticket.recordId}
+                  className="flex items-start justify-between gap-3 rounded bg-background px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">{ticket.data.question}</p>
+                    <span className={`text-xs ${ticket.data.status === 'helping' ? 'text-blue-600' : 'text-muted-foreground'}`}>
+                      {ticket.data.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )})}
+
+
+          {/* Ungrouped tickets */}
+          {ungrouped.map(ticket => (
             <div
               key={ticket.recordId}
               className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3"

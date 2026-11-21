@@ -26,5 +26,6 @@ export const integrations: Record<
 > = {
   google: { billing: 'user' },
   composio: { billing: 'user' },
+  anthropic: { billing: 'developer' },
   // openai: { billing: 'developer', anonymous: true },
 }

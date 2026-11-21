@@ -104,6 +104,20 @@ test('API status page renders loading success and error states', async ({ users 
   expect(user.page.url()).toBe(urlAfterFailure)
 })
 
+test('groupTickets action refuses non-admin callers', async ({ users }) => {
+  const [member] = await users(1)
+  await member.page.goto('/home')
+  await expect(member.page.getByTestId('app-navigation')).toBeVisible({ timeout: 15_000 })
+
+  // page.request inherits the signed-in browser context (cookies), no manual token needed
+  const response = await member.page.request.post('/api/actions/groupTickets', {
+    data: { sessionId: 'test-session-id' },
+  })
+  const body = await response.json() as { success: boolean; error?: string }
+  expect(body.success).toBe(false)
+  expect(body.error).toMatch(/forbidden|admin/i)
+})
+
 test('API status page shows local retry after first-load API failure', async ({ users }) => {
   const [user] = await users(1)
   let requestCount = 0
