@@ -27,9 +27,28 @@
  */
 
 import type { CronTask } from 'deepspace/worker'
+import { buildCronContext } from 'deepspace/worker'
+import type { Env } from '../worker'
 
-export const tasks: CronTask[] = []
+export const tasks: CronTask[] = [
+  { name: 'close-expired-sessions', intervalMinutes: 1 },
+]
 
-export async function runTask(_name: string, _env: unknown): Promise<void> {
-  // No-op — implement your cron tasks here. Dispatch on `_name`.
+export async function runTask(name: string, env: Env): Promise<void> {
+  if (name === 'close-expired-sessions') {
+    const ctx = buildCronContext(env, env.OWNER_USER_ID, `app:${env.DEEPSPACE_APP_ID}`)
+
+    // Query all open sessions; cron context bypasses RBAC and runs as the app owner
+    const sessions = await ctx.records.query('sessions', { where: { status: 'open' }, limit: 200 }) as Array<{
+      recordId: string
+      data: { endsAt?: string }
+    }>
+
+    const now = new Date().toISOString()
+    for (const session of sessions) {
+      if (session.data.endsAt && session.data.endsAt <= now) {
+        await ctx.records.update('sessions', session.recordId, { status: 'closed' })
+      }
+    }
+  }
 }
