@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuthProfileReady, useQuery, useMutations } from 'deepspace'
+import { useAuthProfileReady, useQuery, useMutations, usePresenceRoom } from 'deepspace'
 
 type Session = {
   title: string
@@ -170,6 +170,8 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
   const { ready: ticketReady, put } = useMutations<Ticket>('tickets')
   const { ready: sessionReady, put: putSession } = useMutations<Session>('sessions')
 
+  const { peers } = usePresenceRoom(`session:${sessionId}`)
+
   const active = tickets.filter(r => r.data.status !== 'done')
   const done = tickets.filter(r => r.data.status === 'done')
 
@@ -198,6 +200,25 @@ function QueueView({ sessionId, onBack }: { sessionId: string; onBack: () => voi
           <span className="ml-auto text-xs text-muted-foreground">Session closed</span>
         )}
       </div>
+
+      {/* Online students */}
+      {peers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Online now:</span>
+          {peers.map(peer => (
+            <span
+              key={peer.userId}
+              className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              {peer.userName || 'Student'}
+            </span>
+          ))}
+        </div>
+      )}
+      {peers.length === 0 && (
+        <p className="text-xs text-muted-foreground">No students online yet.</p>
+      )}
 
       {active.length === 0 ? (
         <p className="text-sm text-muted-foreground">Queue is empty.</p>
@@ -343,6 +364,8 @@ function TicketView({
     orderDir: 'asc',
   })
   const { ready, create, remove } = useMutations<Ticket>('tickets')
+  const { peers: sessionPeers } = usePresenceRoom(`session:${sessionId}`)
+  const taIsOnline = session ? sessionPeers.some(p => p.userId === session.data.taId) : false
 
   // studentId is userBound — the server sets it to the caller's userId on create
   const myTicket = tickets.find(r => r.data.studentId === userId)
@@ -368,9 +391,19 @@ function TicketView({
             Code: <span className="font-mono">{session?.data.joinCode}</span>
           </p>
         </div>
-        <button onClick={onLeave} className="text-xs text-muted-foreground hover:text-foreground">
-          Leave
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          <button onClick={onLeave} className="text-xs text-muted-foreground hover:text-foreground">
+            Leave
+          </button>
+          <span
+            className={`flex items-center gap-1 text-xs ${taIsOnline ? 'text-green-600' : 'text-muted-foreground'}`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${taIsOnline ? 'bg-green-500' : 'bg-muted-foreground'}`}
+            />
+            {taIsOnline ? 'TA is online' : 'TA is offline'}
+          </span>
+        </div>
       </div>
 
       {!myTicket ? (
